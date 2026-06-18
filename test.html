@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>电路仿真器 - 测试套件</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        #test-container {
+            padding: 20px;
+            background: #0f3460;
+            color: white;
+            min-height: 100vh;
+            overflow-y: auto;
+        }
+        #test-container h1 {
+            color: #e94560;
+            margin-bottom: 20px;
+        }
+        .test-summary {
+            background: #16213e;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+        .summary-item {
+            text-align: center;
+        }
+        .summary-item .label {
+            font-size: 12px;
+            color: #aaa;
+        }
+        .summary-item .value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .value.pass { color: #27ae60; }
+        .value.fail { color: #e74c3c; }
+        .value.total { color: #3498db; }
+
+        .test-group {
+            margin-bottom: 25px;
+        }
+        .test-group h2 {
+            color: #3498db;
+            margin-bottom: 10px;
+            font-size: 18px;
+            border-bottom: 2px solid #16213e;
+            padding-bottom: 5px;
+        }
+        .test-case {
+            background: #16213e;
+            padding: 10px 15px;
+            margin-bottom: 6px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .test-case.pass { border-left: 4px solid #27ae60; }
+        .test-case.fail { border-left: 4px solid #e74c3c; }
+        .test-case .name { font-size: 14px; }
+        .test-case .status {
+            font-weight: bold;
+            font-size: 13px;
+            padding: 3px 10px;
+            border-radius: 10px;
+        }
+        .test-case .status.pass { background: #27ae60; color: white; }
+        .test-case .status.fail { background: #e74c3c; color: white; }
+        .test-case .error {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #e74c3c;
+            font-family: monospace;
+            background: rgba(231, 76, 60, 0.1);
+            padding: 5px 8px;
+            border-radius: 4px;
+        }
+        .test-case-wrap {
+            flex: 1;
+        }
+        #test-canvas-container {
+            display: none;
+        }
+        .test-btn {
+            padding: 10px 20px;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .test-btn:hover { background: #c73659; }
+    </style>
+</head>
+<body>
+    <div id="test-container">
+        <h1>🧪 电路逻辑仿真器 - 自动化测试套件</h1>
+
+        <div class="test-summary">
+            <div class="summary-item">
+                <div class="label">总测试</div>
+                <div class="value total" id="total-count">0</div>
+            </div>
+            <div class="summary-item">
+                <div class="label">通过</div>
+                <div class="value pass" id="pass-count">0</div>
+            </div>
+            <div class="summary-item">
+                <div class="label">失败</div>
+                <div class="value fail" id="fail-count">0</div>
+            </div>
+            <div class="summary-item">
+                <div class="label">耗时</div>
+                <div class="value total" id="time-ms">0ms</div>
+            </div>
+            <button class="test-btn" onclick="runAllTests()">▶ 重新运行测试</button>
+        </div>
+
+        <div id="test-results"></div>
+    </div>
+
+    <div id="test-canvas-container">
+        <div id="canvas-wrapper" style="width: 2000px; height: 1500px; position: relative;">
+            <svg id="wires-layer" xmlns="http://www.w3.org/2000/svg"></svg>
+            <div id="canvas"></div>
+        </div>
+    </div>
+
+    <script src="js/types.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/simulator.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="test.js"></script>
+</body>
+</html>

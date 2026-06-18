@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>电路逻辑仿真器</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <header id="toolbar">
+            <div class="toolbar-left">
+                <h1>🔌 电路逻辑仿真器</h1>
+            </div>
+            <div class="toolbar-center">
+                <button id="btn-run" class="btn btn-primary">▶ 运行仿真</button>
+                <button id="btn-stop" class="btn btn-warning" disabled>⏹ 停止仿真</button>
+                <button id="btn-step" class="btn btn-info">⏭ 单步执行</button>
+                <button id="btn-clear" class="btn btn-danger">🗑 清空画布</button>
+            </div>
+            <div class="toolbar-right">
+                <button id="btn-save" class="btn btn-success">💾 保存电路</button>
+                <button id="btn-load" class="btn btn-secondary">📂 加载电路</button>
+                <button id="btn-export-module" class="btn btn-info">📦 导出子电路</button>
+            </div>
+        </header>
+
+        <main id="main-content">
+            <aside id="component-panel">
+                <h2>元件库</h2>
+                <div class="component-group">
+                    <h3>输入/输出</h3>
+                    <div class="component-item" draggable="true" data-type="switch">
+                        <span class="comp-icon">🔘</span>
+                        <span class="comp-name">开关</span>
+                    </div>
+                    <div class="component-item" draggable="true" data-type="bulb">
+                        <span class="comp-icon">💡</span>
+                        <span class="comp-name">灯泡</span>
+                    </div>
+                </div>
+                <div class="component-group">
+                    <h3>逻辑门</h3>
+                    <div class="component-item" draggable="true" data-type="and">
+                        <span class="comp-gate">AND</span>
+                        <span class="comp-name">与门</span>
+                    </div>
+                    <div class="component-item" draggable="true" data-type="or">
+                        <span class="comp-gate">OR</span>
+                        <span class="comp-name">或门</span>
+                    </div>
+                    <div class="component-item" draggable="true" data-type="not">
+                        <span class="comp-gate">NOT</span>
+                        <span class="comp-name">非门</span>
+                    </div>
+                    <div class="component-item" draggable="true" data-type="nand">
+                        <span class="comp-gate">NAND</span>
+                        <span class="comp-name">与非门</span>
+                    </div>
+                    <div class="component-item" draggable="true" data-type="nor">
+                        <span class="comp-gate">NOR</span>
+                        <span class="comp-name">或非门</span>
+                    </div>
+                    <div class="component-item" draggable="true" data-type="xor">
+                        <span class="comp-gate">XOR</span>
+                        <span class="comp-name">异或门</span>
+                    </div>
+                </div>
+                <div class="component-group">
+                    <h3>子电路</h3>
+                    <div id="module-list">
+                        <p class="hint">保存的电路将出现在这里</p>
+                    </div>
+                </div>
+            </aside>
+
+            <section id="canvas-container">
+                <div id="canvas-wrapper">
+                    <svg id="wires-layer" xmlns="http://www.w3.org/2000/svg"></svg>
+                    <div id="canvas"></div>
+                </div>
+            </section>
+
+            <aside id="status-panel">
+                <h2>信号状态</h2>
+                <div id="simulation-status" class="status-card">
+                    <div class="status-label">仿真状态</div>
+                    <div class="status-value" id="status-value">停止</div>
+                </div>
+                <div class="status-group">
+                    <h3>开关状态</h3>
+                    <div id="switch-states" class="states-list">
+                        <p class="hint">暂无开关</p>
+                    </div>
+                </div>
+                <div class="status-group">
+                    <h3>灯泡状态</h3>
+                    <div id="bulb-states" class="states-list">
+                        <p class="hint">暂无灯泡</p>
+                    </div>
+                </div>
+                <div class="status-group">
+                    <h3>连接信息</h3>
+                    <div id="wire-info" class="info-list">
+                        <p class="hint">暂无连线</p>
+                    </div>
+                </div>
+                <div class="status-group help-section">
+                    <h3>使用说明</h3>
+                    <ul class="help-list">
+                        <li>从左侧拖拽元件到画布</li>
+                        <li>点击元件端口开始连线</li>
+                        <li>再次点击另一元件端口完成连线</li>
+                        <li>点击开关切换 0/1 状态</li>
+                        <li>选中元件后按 Delete 删除</li>
+                        <li>右键点击连线可删除</li>
+                    </ul>
+                </div>
+            </aside>
+        </main>
+
+        <input type="file" id="file-input" accept=".json" style="display:none">
+    </div>
+
+    <div id="module-dialog" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="modal-title">保存为子电路</h2>
+            <input type="text" id="module-name" placeholder="输入子电路名称">
+            <div class="modal-buttons">
+                <button id="modal-cancel" class="btn btn-danger">取消</button>
+                <button id="modal-confirm" class="btn btn-primary">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/types.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/simulator.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
