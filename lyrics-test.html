@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>歌词同步引擎 - 测试套件</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: #0f3460;
+            color: white;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        h1 {
+            color: #e94560;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .test-summary {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 25px;
+            justify-content: center;
+            align-items: center;
+        }
+        .summary-item {
+            text-align: center;
+        }
+        .summary-item .label {
+            font-size: 12px;
+            color: #8892b0;
+            margin-bottom: 4px;
+        }
+        .summary-item .value {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        .value.pass { color: #2ecc71; }
+        .value.fail { color: #e74c3c; }
+        .value.total { color: #3498db; }
+        .value.time { color: #f39c12; }
+
+        .test-group {
+            margin-bottom: 30px;
+            background: #16213e;
+            border-radius: 10px;
+            padding: 15px;
+        }
+        .test-group h2 {
+            color: #3498db;
+            margin-bottom: 12px;
+            font-size: 18px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #1f4068;
+        }
+        .test-case {
+            background: #0f3460;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .test-case.pass { border-left: 4px solid #2ecc71; }
+        .test-case.fail { border-left: 4px solid #e74c3c; }
+        .test-case-wrap { flex: 1; }
+        .test-case .name { font-size: 14px; }
+        .test-case .status {
+            font-weight: bold;
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 12px;
+            flex-shrink: 0;
+            margin-left: 10px;
+        }
+        .test-case .status.pass { background: #2ecc71; color: white; }
+        .test-case .status.fail { background: #e74c3c; color: white; }
+        .test-case .error {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+            padding: 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+        }
+        .run-btn {
+            background: linear-gradient(135deg, #e94560, #c73659);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .run-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(233, 69, 96, 0.4);
+        }
+        .test-meta {
+            font-size: 12px;
+            color: #8892b0;
+            margin-bottom: 10px;
+            font-style: italic;
+        }
+        .expand-btn {
+            background: transparent;
+            border: 1px solid #8892b0;
+            color: #8892b0;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+        .stack-trace {
+            display: none;
+            margin-top: 6px;
+            font-size: 11px;
+            opacity: 0.8;
+        }
+        .stack-trace.show { display: block; }
+    </style>
+</head>
+<body>
+    <h1>🎵 歌词同步引擎 - 自动化测试套件</h1>
+
+    <div class="test-summary">
+        <div class="summary-item">
+            <div class="label">总测试数</div>
+            <div class="value total" id="total-count">0</div>
+        </div>
+        <div class="summary-item">
+            <div class="label">通过</div>
+            <div class="value pass" id="pass-count">0</div>
+        </div>
+        <div class="summary-item">
+            <div class="label">失败</div>
+            <div class="value fail" id="fail-count">0</div>
+        </div>
+        <div class="summary-item">
+            <div class="label">耗时</div>
+            <div class="value time" id="time-ms">0ms</div>
+        </div>
+        <button class="run-btn" onclick="runAllTests()">▶ 重新运行测试</button>
+    </div>
+
+    <div id="test-results"></div>
+
+    <script src="js/lyrics-types.js"></script>
+    <script src="js/lyrics-engine.js"></script>
+    <script>
+        // ============ 测试框架 ============
+        const TestResults = {
+            total: 0, pass: 0, fail: 0, groups: {}
+        };
+
+        function assert(condition, message) {
+            if (!condition) throw new Error(message || '断言失败');
+        }
+
+        function assertEqual(actual, expected, message) {
+            if (actual !== expected) {
+                throw new Error(`${message || '断言失败'}: 期望 ${JSON.stringify(expected)}, 实际 ${JSON.stringify(actual)}`);
+            }
+        }
+
+        function assertApprox(actual, expected, tolerance = 0.001, message) {
+            if (Math.abs(actual - expected) > tolerance) {
+                throw new Error(`${message || '近似断言失败'}: 期望约 ${expected}, 实际 ${actual}, 容差 ${tolerance}`);
+            }
+        }
+
+        function assertNotEmpty(arr, message) {
+            if (!arr || arr.length === 0) throw new Error(message || '数组不应为空');
+        }
+
+        function runGroup(groupName, testFns) {
+            TestResults.groups[groupName] = [];
+            for (const test of testFns) {
+                TestResults.total++;
+                try {
+                    test.fn();
+                    TestResults.pass++;
+                    TestResults.groups[groupName].push({ name: test.name, pass: true });
+                } catch (e) {
+                    TestResults.fail++;
+                    TestResults.groups[groupName].push({
+                        name: test.name,
+                        pass: false,
+                        error: e.message,
+                        stack: e.stack
+                    });
+                    console.error(`测试失败: ${test.name}`, e);
+                }
+            }
+        }
+
+        function resetLyricsState() {
+            resetScoreState();
+        }
+
+        // ============ 测试用例 ============
+        const testSuites = [
+            {
+                name: '1. 核心数据结构',
+                meta: '验证 Note、LyricSegment、LyricLine 类的基本功能',
+                tests: [
+                    {
+                        name: 'Note 创建 - 基本属性设置正确',
+                        fn: () => {
+                            resetLyricsState();
+                            const note = new Note('test_1', 'C4', 'QUARTER', 0, 0);
+                            assertEqual(note.pitch, 'C4');
+                            assertEqual(note.noteType, 'QUARTER');
+                            assertEqual(note.duration, 1);
+                            assertEqual(note.measure, 0);
+                            assertEqual(note.beat, 0);
+                            assertEqual(note.isRest, false);
+                            assertNotEmpty(note.lyricIds === undefined || Array.isArray(note.lyricIds), 'lyricIds应可迭代');
+                        }
+                    },
+                    {
+                        name: 'Note - 不同音符时值 duration 正确',
+                        fn: () => {
+                            const n1 = new Note('n1', 'C4', 'WHOLE', 0, 0);
+                            const n2 = new Note('n2', 'C4', 'HALF', 0, 0);
+                            const n3 = new Note('n3', 'C4', 'QUARTER', 0, 0);
+                            const n4 = new Note('n4', 'C4', 'EIGHTH', 0, 0);
+                            const n5 = new Note('n5', 'C4', 'SIXTEENTH', 0, 0);
+                            assertEqual(n1.duration, 4, '全音符');
+                            assertEqual(n2.duration, 2, '二分音符');
+                            assertEqual(n3.duration, 1, '四分音符');
+                            assertEqual(n4.duration, 0.5, '八分音符');
+                            assertEqual(n5.duration, 0.25, '十六分音符');
+                        }
+                    },
+                    {
+                        name: 'Note.getAbsoluteBeat - 绝对拍位计算',
+                        fn: () => {
+                            const n1 = new Note('n1', 'C4', 'QUARTER', 0, 0);
+                            const n2 = new Note('n2', 'C4', 'QUARTER', 1, 2);
+                            const n3 = new Note('n3', 'C4', 'QUARTER', 3, 1);
+                            assertEqual(n1.getAbsoluteBeat(4), 0);
+                            assertEqual(n2.getAbsoluteBeat(4), 6);
+                            assertEqual(n3.getAbsoluteBeat(4), 13);
+                        }
+                    },
+                    {
+                        name: 'Note.getStartTime / getEndTime - BPM=120 时值正确',
+                        fn: () => {
+                            const bpm = 120;
+                            const beatDuration = 60 / bpm;
+                            const n1 = new Note('n1', 'C4', 'QUARTER', 0, 0);
+                            assertApprox(n1.getStartTime(0, bpm), 0);
+                            assertApprox(n1.getEndTime(0, bpm), beatDuration);
+                            const n2 = new Note('n2', 'C4', 'HALF', 1, 1);
+                            assertApprox(n2.getStartTime(0, bpm), 5 * beatDuration);
+                            assertApprox(n2.getEndTime(0, bpm), 7 * beatDuration);
+                        }
+                    },
+                    {
+                        name: 'LyricSegment 创建 - 基本属性正确',
+                        fn: () => {
+                            const seg = new LyricSegment('l1', '你', ['n1', 'n2'], 0.5, 1.0);
+                            assertEqual(seg.text, '你');
+                            assertEqual(seg.noteIds.length, 2);
+                            assertEqual(seg.startTime, 0.5);
+                            assertEqual(seg.endTime, 1.0);
+                            assertEqual(seg.lineIndex, 0);
+                        }
+                    },
+                    {
+                        name: 'LyricSegment.addNote / removeNote - 增删音符',
+                        fn: () => {
+                            const seg = new LyricSegment('l1', '好');
+                            assertEqual(seg.noteIds.length, 0);
+                            seg.addNote('n1');
+                            assertEqual(seg.noteIds.length, 1);
+                            seg.addNote('n1');
+                            assertEqual(seg.noteIds.length, 1, '重复添加不应增加');
+                            seg.addNote('n2');
+                            assertEqual(seg.noteIds.length, 2);
+                            seg.removeNote('n1');
+                            assertEqual(seg.noteIds.length, 1);
+                            assertEqual(seg.noteIds[0], 'n2');
+                        }
+                    },
+                    {
+                        name: 'LyricLine.getText - 拼接各段文本',
+                        fn: () => {
+                            const s1 = new LyricSegment('s1', 'Hello');
+                            const s2 = new LyricSegment('s2', ' ');
+                            const s3 = new LyricSegment('s3', 'World');
+                            const line = new LyricLine('line1', [s1, s2, s3], 0);
+                            assertEqual(line.getText(), 'Hello World');
+                        }
+                    }
+                ]
+            },
+            {
+                name: '2. LyricsMapper 双向映射',
+                meta: '验证音符与歌词之间的双向映射关系建立与查询',
+                tests: [
+                    {
+                        name: 'createNote - 正确创建并存储音符',
+                        fn: () => {
+                            resetLyricsState();
+                            const mapper = ScoreState.mapper;
+                            const n = mapper.createNote('C4', 'QUARTER', 0, 0);
+                            assert(mapper.notes.has(n.id), '音符应存入 Map');
+                            assertEqual(mapper.notes.size, 1);
+                        }
+                    },
+                    {
+                        name: 'createLyricSegment - 创建歌词并自动关联音符',
+                        fn: () => {
+                            resetLyricsState();
+                            const mapper = ScoreState.mapper;
+                            const n1 = mapper.createNote('C4', 'QUARTER', 0, 0);
+                            const n2 = mapper.createNote('D4', 'QUARTER', 0, 1);
+                            const seg = mapper.createLyricSegment('我', [n1.id, n2.id]);
+                            assert(mapper.lyrics.has(seg.id));
+                            assertEqual(n1.lyricIds.length, 1);
+                            assertEqual(n2.lyricIds.length, 1);
+                        }
+                    },
+                    {
+                        name: 'mapLyricToNote / unmapLyricFromNote - 映射与解除',
+                        fn: () => {
+                            resetLyricsState();
+                            const mapper = ScoreState.mapper;
+                            const n = mapper.createNote('E4', 'QUARTER', 0, 2);
+                            const s = mapper.createLyricSegment('好');
+                            assertEqual(n.lyricIds.length, 0);
+                            const ok1 = mapper.mapLyricToNote(s.id, n.id);
+                            assert(ok1 === true, '映射成功应返回 true');
+                            assertEqual(n.lyricIds.length, 1);
+                            assertEqual(s.noteIds.length, 1);
+                            const ok2 = mapper.unmapLyricFromNote(s.id, n.id);
+                            assert(ok2 === true);
+                            assertEqual(n.lyricIds.length, 0);
+                            assertEqual(s.noteIds.length, 0);
+                        }
+                    },
+                    {
+                        name: 'getLyricsForNote / getNotesForLyric - 双向查询',
+                        fn: () => {
+                            resetLyricsState();
+                            const mapper = ScoreState.mapper;
+                            const n1 = mapper.createNote('C4', 'QUARTER', 0, 0);
+                            const n2 = mapper.createNote('D4', 'QUARTER', 0, 1);
+                            const s1 = mapper.createLyricSegment('飞', [n1.id]);
+                            const s2 = mapper.createLyricSegment('翔', [n1.id, n2.id]);
+                            const lyricsForN1 = mapper.getLyricsForNote(n1.id);
+                            assertEqual(lyricsForN1.length, 2, 'n1 应关联 2 段歌词');
+                            const notesForS2 = mapper.getNotesForLyric(s2.id);
+                            assertEqual(notesForS2.length, 2, 's2 应关联 2 个音符');
+                        }
+                    },
+                    {
+                        name: '一行歌词对应多个音符 - 正确关联',
+                        fn: () => {
+                            resetLyricsState();
+                            const mapper = ScoreState.mapper;
+                            const notes = [];
+                            for (let i = 0; i < 5; i++) {
+                                notes.push(mapper.createNote(['C4','D4','E4','F4','G4'][i], 'QUARTER', 0, i));
+                            }
+                            const seg = mapper.createLyricSegment('长音', notes.map(n => n.id));
+                            assertEqual(seg.noteIds.length, 5);
+                            notes.forEach(n => {
+                                assertEqual(n.lyricIds.length, 1);
+                            });
+                        }
+                    },
+                    {
+                        name: '多个音符共享同一歌词片段 - 正确关联',
+                        fn: () => {
+                            resetLyricsState();
+                            const mapper = ScoreState.mapper;
+                            const n1 = mapper.createNote('G4', 'HALF', 0, 0);
+                            const n2 = mapper.createNote('G4', 'HALF', 0, 2);
+                            const seg = mapper.createLyricSegment('啊~', [n1.id, n2.id]);
+                            assertEqual(mapper.getNotesForLyric(seg.id).length, 2);
+                        }
+                    },
+                    {
+                        name: 'getAllNotesSorted - 按时序排序',
+                        fn: () => {
+                            resetLyricsState();
+                            const mapper = ScoreState.mapper;
+                            const n3 = mapper.createNote('E4', 'QUARTER', 1, 2);
+                            const n1 = mapper.createNote('C4', 'QUARTER', 0, 0);
+                            const n2 = mapper.createNote('D4', 'QUARTER', 0, 3);
+                            const sorted = mapper.getAllNotesSorted();
+                            assertEqual(sorted[0].id, n1.id);
+                            assertEqual(sorted[1].id, n2.id);
+                            assertEqual(sorted[2].id, n3.id);
+                        }
+                    },
+                    {
+                        name: 'recalculateLyricTimestamps - 自动计算歌词时间戳',
+                        fn: () => {
+                            resetLyricsState();
+                            setBPM(120);
+                            const mapper = ScoreState.mapper;
+                            const n1 = mapper.createNote('C4', 'QUARTER', 0, 0);
+                            const n2 = mapper.createNote('D4', 'QUARTER', 0, 1);
+                            const n3 = mapper.createNote('E4', 'QUARTER', 0, 2);
+                            const s1 = mapper.createLyricSegment('我', [n1.id]);
+                            const s2 = mapper.createLyricSegment('和', [n2.id, n3.id]);
+                            mapper.recalculateLyricTimestamps(120, 4);
+                            assertApprox(s1.startTime, 0);
+                            assertApprox(s1.endTime, 0.5);
+                            assertApprox(s2.startTime, 0.5);
+                            assertApprox(s2.endTime, 1.5);
+                        }
+                    },
+                    {
+                        name: 'findActiveLyricAtTime - 按时间查找活动歌词',
+                        fn: () => {
+                            resetLyricsState();
+                            const mapper = ScoreState.mapper;
+                            const n1 = mapper.createNote('C4', 'QUARTER', 0, 0);
+                            const n2 = mapper.createNote('D4', 'QUARTER', 0, 1);
+                            const n3 = mapper.createNote('E4', 'QUARTER', 0, 2);
+                            const s1 = mapper.createLyricSegment('A', [n1.id]);
+                            const s2 = mapper.createLyricSegment('B', [n2.id]);
+                            const s3 = mapper.createLyricSegment('C', [n3.id]);
+                            mapper.recalculateLyricTimestamps(120, 4);
+                            const at0 = mapper.findActiveLyricAtTime(0.1);
+                            assert(at0.some(s => s.id === s1.id), '0.1s 应激活 s1');
+                            const at06 = mapper.findActiveLyricAtTime(0.6);
+                            assert(at06.some(s => s.id === s2.id), '0.6s 应激活 s2');
+                            const at11 = mapper.findActiveLyricAtTime(1.1);
+                            assert(at11.some(s => s.id === s3.id), '1.1s 应激活 s3');
+                        }
+                    }
+                ]
+            },
+            {
+                name: '3. LRC 格式解析',
+                meta: '验证 LRC 文件的导入与导出功能',
+                tests: [
+                    {
+                        name: 'LRC_PARSER.parse - 基础时间戳解析',
+                        fn: () => {
+                            const lrc = `[00:00.00]Hello World
+[00:03.50]Second line
+[00:07.25]Third line`;
+                            const result = LRC_PARSER.parse(lrc);
+                            assertEqual(result.entries.length, 3);
+                            assertApprox(result.entries[0].time, 0.0);
+                            assertEqual(result.entries[0].text, 'Hello World');
+                            assertApprox(result.entries[1].time, 3.5);
+                            assertApprox(result.entries[2].time, 7.25);
+                        }
+                    },
+                    {
+                        name: 'LRC_PARSER.parse - 元数据解析 (ti, ar, al)',
+                        fn: () => {
+                            const lrc = `[ti:Test Song]
+[ar:Test Artist]
+[al:Test Album]
+[00:00.00]Verse 1`;
+                            const result = LRC_PARSER.parse(lrc);
+                            assertEqual(result.metadata.ti, 'Test Song');
+                            assertEqual(result.metadata.ar, 'Test Artist');
+                            assertEqual(result.metadata.al, 'Test Album');
+                            assertEqual(result.entries.length, 1);
+                        }
+                    },
+                    {
+                        name: 'LRC_PARSER.parse - 多时间戳同一行',
+                        fn: () => {
+                            const lrc = `[00:00.00][00:05.00]Repeated chorus`;
+                            const result = LRC_PARSER.parse(lrc);
+                            assertEqual(result.entries.length, 2);
+                            assertEqual(result.entries[0].text, 'Repeated chorus');
+                            assertEqual(result.entries[1].text, 'Repeated chorus');
+                            assertApprox(result.entries[0].time, 0);
+                            assertApprox(result.entries[1].time, 5);
+                        }
+                    },
+                    {
+                        name: 'LRC_PARSER.parse - 毫秒三位数格式',
+                        fn: () => {
+                            const lrc = `[00:01.250]精确到毫秒`;
+                            const result = LRC_PARSER.parse(lrc);
+                            assertApprox(result.entries[0].time, 1.250);
+                        }
+                    },
+                    {
+                        name: 'LRC_PARSER.parse - 自动计算 endTime',
+                        fn: () => {
+                            const lrc = `[00:00.00]A
+[00:02.00]B
+[00:05.00]C`;
+                            const result = LRC_PARSER.parse(lrc);
+                            assertApprox(result.entries[0].endTime, 2.0);
+                            assertApprox(result.entries[1].endTime, 5.0);
+                        }
+                    },
+                    {
+                        name: 'LRC_PARSER.generate - 正确生成 LRC 字符串',
+                        fn: () => {
+                            const entries = [
+                                { time: 0, text: '第一行' },
+                                { time: 2.5, text: '第二行' }
+                            ];
+                            const meta = { ti: '测试歌', ar: '艺术家' };
+                            const out = LRC_PARSER.generate(entries, meta);
+                            assert(out.includes('[ti:测试歌]'));
+                            assert(out.includes('[ar:艺术家]'));
+                            assert(out.includes('[00:00.00]第一行'));
+                            assert(out.includes('[00:02.50]第二行'));
+                        }
+                    },
+                    {
+                        name: 'importLRC - 完整导入流程',
+                        fn: () => {
+                            resetLyricsState();
+                            const notes = [];
+                            const pitches = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5'];
+                            for (let i = 0; i < pitches.length; i++) {
+                                notes.push({ pitch: pitches[i], noteType: 'QUARTER', measure: Math.floor(i / 4), beat: i % 4 });
+                            }
+                            const lrc = `[ti:测试]
+[ar:作者]
+[00:00.00]我
+[00:00.50]爱
+[00:01.00]你
+[00:01.50]中
+[00:02.00]国`;
+                            const result = importLRC(lrc, notes);
+                            assertEqual(result.metadata.ti, '测试');
+                            assert(result.lineCount >= 1);
+                            assert(ScoreState.mapper.lines.length >= 1, '应创建歌词行');
+                            assert(ScoreState.mapper.notes.size >= 5, '应包含导入的音符');
+                        }
+                    }
+                ]
+            },
+            {
+                name: '4. 播放与同步引擎',
+                meta: '验证时间查找、高亮定位、播放控制功能',
+                tests: [
+                    {
+                        name: 'syncEngine.updateCurrentTime - 正确更新 activeLyricIds',
+                        fn: () => {
+                            resetLyricsState();
+                            setBPM(120);
+                            const mapper = ScoreState.mapper;
+                            const n1 = mapper.createNote('C4', 'QUARTER', 0, 0);
+                            const n2 = mapper.createNote('D4', 'QUARTER', 0, 1);
+                            const s1 = mapper.createLyricSegment('前', [n1.id]);
+                            const s2 = mapper.createLyricSegment('后', [n2.id]);
+                            mapper.createLyricLine([s1, s2], 0);
+                            mapper.recalculateLyricTimestamps(120, 4);
+                            calculateTotalDuration();
+                            syncEngine.updateCurrentTime(0.1);
+                            assert(ScoreState.activeLyricIds.includes(s1.id));
+                            assert(!ScoreState.activeLyricIds.includes(s2.id));
+                            syncEngine.updateCurrentTime(0.6);
+                            assert(!ScoreState.activeLyricIds.includes(s1.id));
+                            assert(ScoreState.activeLyricIds.includes(s2.id));
+                        }
+                    },
+                    {
+                        name: 'syncEngine.seekToNote - 跳转到指定音符时间',
+                        fn: () => {
+                            resetLyricsState();
+                            setBPM(120);
+                            const mapper = ScoreState.mapper;
+                            const n0 = mapper.createNote('C4', 'QUARTER', 0, 0);
+                            const n1 = mapper.createNote('D4', 'QUARTER', 1, 0);
+                            mapper.recalculateLyricTimestamps();
+                            calculateTotalDuration();
+                            syncEngine.seekToNote(n1.id);
+                            assertApprox(ScoreState.currentTime, 2.0, 0.01, '第2小节第0拍应为 2.0s');
+                        }
+                    },
+                    {
+                        name: 'syncEngine.seekToLyric - 跳转到指定歌词',
+                        fn: () => {
+                            resetLyricsState();
+                            setBPM(120);
+                            const mapper = ScoreState.mapper;
+                            const n1 = mapper.createNote('C4', 'QUARTER', 0, 2);
+                            const s = mapper.createLyricSegment('跳', [n1.id]);
+                            mapper.recalculateLyricTimestamps();
+                            calculateTotalDuration();
+                            syncEngine.seekToLyric(s.id);
+                            assertApprox(ScoreState.currentTime, 1.0);
+                        }
+                    },
+                    {
+                        name: 'syncEngine.getActiveNotes - 当前播放时刻音符',
+                        fn: () => {
+                            resetLyricsState();
+                            setBPM(120);
+                            const mapper = ScoreState.mapper;
+                            mapper.createNote('C4', 'QUARTER', 0, 0);
+                            const n1 = mapper.createNote('D4', 'QUARTER', 0, 1);
+                            mapper.createNote('E4', 'QUARTER', 0, 2);
+                            calculateTotalDuration();
+                            syncEngine.updateCurrentTime(0.6);
+                            const active = syncEngine.getActiveNotes();
+                            assert(active.some(n => n.id === n1.id), '0.6s 时 D4 应激活');
+                        }
+                    },
+                    {
+                        name: 'calculateTotalDuration - 总时长计算正确',
+                        fn: () => {
+                            resetLyricsState();
+                            setBPM(120);
+                            const mapper = ScoreState.mapper;
+                            mapper.createNote('C4', 'QUARTER', 0, 0);
+                            mapper.createNote('D4', 'QUARTER', 0, 1);
+                            mapper.createNote('E4', 'HALF', 0, 2);
+                            const dur = calculateTotalDuration();
+                            assertApprox(dur, 2.0);
+                        }
+                    },
+                    {
+                        name: 'setBPM - 改变 BPM 重新计算时间戳',
+                        fn: () => {
+                            resetLyricsState();
+                            const mapper = ScoreState.mapper;
+                            const n1 = mapper.createNote('C4', 'QUARTER', 1, 0);
+                            const s = mapper.createLyricSegment('测', [n1.id]);
+                            mapper.recalculateLyricTimestamps(120, 4);
+                            assertApprox(s.startTime, 2.0, 0.01, 'BPM=120 时第2小节开始为 2.0s');
+                            setBPM(60);
+                            assertApprox(s.startTime, 4.0, 0.01, 'BPM=60 时应为 4.0s');
+                        }
+                    },
+                    {
+                        name: 'ScoreState.activeLineIndex - 正确识别当前行',
+                        fn: () => {
+                            resetLyricsState();
+                            setBPM(120);
+                            const mapper = ScoreState.mapper;
+                            const n1 = mapper.createNote('C4', 'QUARTER', 0, 0);
+                            const n2 = mapper.createNote('D4', 'QUARTER', 2, 0);
+                            const s1 = mapper.createLyricSegment('行1', [n1.id]);
+                            const s2 = mapper.createLyricSegment('行2', [n2.id]);
+                            mapper.createLyricLine([s1], 0);
+                            mapper.createLyricLine([s2], 2);
+                            mapper.recalculateLyricTimestamps();
+                            calculateTotalDuration();
+                            syncEngine.updateCurrentTime(0.1);
+                            assertEqual(ScoreState.activeLineIndex, 0);
+                            syncEngine.updateCurrentTime(4.1);
+                            assertEqual(ScoreState.activeLineIndex, 1);
+                        }
+                    }
+                ]
+            },
+            {
+                name: '5. buildScoreFromNotes 构建乐谱',
+                meta: '验证完整乐谱构建流程',
+                tests: [
+                    {
+                        name: '构建简单 C 大调音阶 + 歌词',
+                        fn: () => {
+                            resetLyricsState();
+                            setBPM(120);
+                            const noteList = [
+                                { pitch: 'C4', noteType: 'QUARTER', measure: 0, beat: 0 },
+                                { pitch: 'D4', noteType: 'QUARTER', measure: 0, beat: 1 },
+                                { pitch: 'E4', noteType: 'QUARTER', measure: 0, beat: 2 },
+                                { pitch: 'F4', noteType: 'QUARTER', measure: 0, beat: 3 },
+                            ];
+                            const lines = [
+                                { text: '哆来咪发', measureIndex: 0 },
+                            ];
+                            const mapper = buildScoreFromNotes(noteList, lines);
+                            assertEqual(mapper.notes.size, 4);
+                            assertEqual(mapper.lines.length, 1);
+                            assertEqual(mapper.lyrics.size, 4);
+                            const firstLyric = mapper.getAllNotesSorted()[0].lyricIds[0];
+                            const seg = mapper.lyrics.get(firstLyric);
+                            assertEqual(seg.text, '哆');
+                            assertApprox(ScoreState.totalDuration, 2.0, 0.01);
+                        }
+                    },
+                    {
+                        name: '多段歌词多行 - 逐字分配音符',
+                        fn: () => {
+                            resetLyricsState();
+                            setBPM(60);
+                            const notes = [];
+                            for (let m = 0; m < 2; m++) {
+                                for (let b = 0; b < 4; b++) {
+                                    notes.push({ pitch: 'C4', noteType: 'QUARTER', measure: m, beat: b });
+                                }
+                            }
+                            const lines = [
+                                { text: '一二三四', measureIndex: 0 },
+                                { text: '五六七八', measureIndex: 1 },
+                            ];
+                            buildScoreFromNotes(notes, lines);
+                            assertEqual(ScoreState.mapper.lines.length, 2);
+                            assertEqual(ScoreState.mapper.lyrics.size, 8);
+                            const secondLineText = ScoreState.mapper.lines[1].getText();
+                            assertEqual(secondLineText, '五六七八');
+                        }
+                    },
+                    {
+                        name: '带休止符的歌词映射 - 休止符不影响分配',
+                        fn: () => {
+                            resetLyricsState();
+                            setBPM(120);
+                            const noteList = [
+                                { pitch: 'C4', noteType: 'QUARTER', measure: 0, beat: 0 },
+                                { pitch: 'REST', noteType: 'QUARTER', measure: 0, beat: 1, isRest: true },
+                                { pitch: 'E4', noteType: 'QUARTER', measure: 0, beat: 2 },
+                            ];
+                            const lines = [{ text: 'AB' }];
+                            buildScoreFromNotes(noteList, lines);
+                            const sorted = ScoreState.mapper.getAllNotesSorted();
+                            const first = sorted[0];
+                            const third = sorted[2];
+                            assertEqual(first.lyricIds.length, 1, 'C4 应有歌词');
+                            assertEqual(sorted[1].lyricIds.length, 0, '休止符不应有歌词');
+                            assertEqual(third.lyricIds.length, 1, 'E4 应有歌词');
+                        }
+                    }
+                ]
+            },
+            {
+                name: '6. 导出与持久化',
+                meta: '验证导出 LRC、图片、映射数据功能',
+                tests: [
+                    {
+                        name: 'exportLRC - 完整导出 LRC 字符串',
+                        fn: () => {
+                            resetLyricsState();
+                            setBPM(120);
+                            ScoreState.songInfo = { title: '测试歌', artist: 'A', album: 'B' };
+                            const notes = [];
+                            for (let i = 0; i < 4; i++) {
+                                notes.push({ pitch: 'C4', noteType: 'QUARTER', measure: 0, beat: i });
+                            }
+                            buildScoreFromNotes(notes, [{ text: '测试导出' }]);
+                            const lrc = exportLRC();
+                            assert(lrc.includes('[ti:测试歌]'), '应包含标题');
+                            assert(lrc.includes('[ar:A]'), '应包含艺术家');
+                            assert(lrc.includes('测'), '应包含歌词文本');
+                            assert(lrc.includes('试'), '应包含歌词文本');
+                        }
+                    },
+                    {
+                        name: 'mapper.exportMapping - 导出双向映射数据',
+                        fn: () => {
+                            resetLyricsState();
+                            const mapper = ScoreState.mapper;
+                            const n = mapper.createNote('C4', 'QUARTER', 0, 0);
+                            const s = mapper.createLyricSegment('词', [n.id]);
+                            mapper.createLyricLine([s], 0);
+                            const exp = mapper.exportMapping();
+                            assertEqual(exp.notes.length, 1);
+                            assertEqual(exp.lyrics.length, 1);
+                            assertEqual(exp.lines.length, 1);
+                            assertEqual(exp.notes[0].pitch, 'C4');
+                            assertEqual(exp.lyrics[0].text, '词');
+                        }
+                    },
+                    {
+                        name: 'exportLRC 生成内容可重新解析',
+                        fn: () => {
+                            resetLyricsState();
+                            setBPM(120);
+                            ScoreState.songInfo = { title: 'S', artist: 'AR' };
+                            const notes = [];
+                            for (let i = 0; i < 8; i++) {
+                                notes.push({ pitch: ['C4','D4','E4','F4','G4','A4','B4','C5'][i], noteType: 'QUARTER', measure: Math.floor(i/4), beat: i%4 });
+                            }
+                            buildScoreFromNotes(notes, [
+                                { text: '一二三四' },
+                                { text: '五六七八' }
+                            ]);
+                            const out = exportLRC();
+                            const parsed = LRC_PARSER.parse(out);
+                            assert(parsed.entries.length >= 4, '重新解析至少应有 4 行');
+                            assertEqual(parsed.metadata.ti, 'S');
+                        }
+                    }
+                ]
+            },
+            {
+                name: '7. 边界与异常处理',
+                meta: '验证边界条件、错误输入处理',
+                tests: [
+                    {
+                        name: '未映射歌词 - findActiveLyricAtTime 返回空',
+                        fn: () => {
+                            resetLyricsState();
+                            const result = ScoreState.mapper.findActiveLyricAtTime(100);
+                            assert(Array.isArray(result), '应始终返回数组');
+                            assertEqual(result.length, 0);
+                        }
+                    },
+                    {
+                        name: '空 Mapper - getAllNotesSorted 返回空数组',
+                        fn: () => {
+                            resetLyricsState();
+                            const sorted = ScoreState.mapper.getAllNotesSorted();
+                            assert(Array.isArray(sorted));
+                            assertEqual(sorted.length, 0);
+                        }
+                    },
+                    {
+                        name: 'mapLyricToNote 无效 ID - 返回 false 不抛错',
+                        fn: () => {
+                            resetLyricsState();
+                            const r = ScoreState.mapper.mapLyricToNote('nonexistent', 'also_bad');
+                            assertEqual(r, false);
+                        }
+                    },
+                    {
+                        name: 'buildScoreFromNotes 无音符只有歌词 - 不抛错',
+                        fn: () => {
+                            resetLyricsState();
+                            const m = buildScoreFromNotes([], [{ text: '无音符' }]);
+                            assert(m instanceof LyricsMapper);
+                            assertEqual(m.notes.size, 0);
+                        }
+                    },
+                    {
+                        name: 'BPM 设置极限值 - 限制在合理范围',
+                        fn: () => {
+                            setBPM(1000);
+                            assert(ScoreState.config.bpm <= 300, 'BPM 上限应为 300');
+                            setBPM(5);
+                            assert(ScoreState.config.bpm >= 20, 'BPM 下限应为 20');
+                        }
+                    },
+                    {
+                        name: 'updateCurrentTime 负值/超出 - 自动 clamp',
+                        fn: () => {
+                            resetLyricsState();
+                            const mapper = ScoreState.mapper;
+                            mapper.createNote('C4', 'QUARTER', 0, 0);
+                            calculateTotalDuration();
+                            syncEngine.updateCurrentTime(-10);
+                            assertApprox(ScoreState.currentTime, 0);
+                            syncEngine.updateCurrentTime(99999);
+                            assert(ScoreState.currentTime <= ScoreState.totalDuration);
+                        }
+                    },
+                    {
+                        name: 'LRC 解析空字符串 - 返回空数组',
+                        fn: () => {
+                            const r = LRC_PARSER.parse('');
+                            assert(Array.isArray(r.entries));
+                            assertEqual(r.entries.length, 0);
+                        }
+                    }
+                ]
+            }
+        ];
+
+        // ============ 渲染 ============
+        function renderTestResults() {
+            const container = document.getElementById('test-results');
+            let html = '';
+            for (const groupName in TestResults.groups) {
+                const tests = TestResults.groups[groupName];
+                const suite = testSuites.find(s => s.name === groupName);
+                html += `<div class="test-group"><h2>${groupName}</h2>`;
+                if (suite && suite.meta) {
+                    html += `<div class="test-meta">${suite.meta}</div>`;
+                }
+                tests.forEach((t, i) => {
+                    html += `
+                        <div class="test-case ${t.pass ? 'pass' : 'fail'}">
+                            <div class="test-case-wrap">
+                                <div class="name">${t.pass ? '✅' : '❌'} ${t.name}</div>
+                                ${t.error ? `<div class="error">${t.error}
+                                    <button class="expand-btn" onclick="this.nextElementSibling.classList.toggle('show')">展开堆栈</button>
+                                    <div class="stack-trace">${(t.stack || '').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+                                </div>` : ''}
+                            </div>
+                            <span class="status ${t.pass ? 'pass' : 'fail'}">${t.pass ? 'PASS' : 'FAIL'}</span>
+                        </div>`;
+                });
+                html += '</div>';
+            }
+            container.innerHTML = html;
+            document.getElementById('total-count').textContent = TestResults.total;
+            document.getElementById('pass-count').textContent = TestResults.pass;
+            document.getElementById('fail-count').textContent = TestResults.fail;
+        }
+
+        function runAllTests() {
+            TestResults.total = 0;
+            TestResults.pass = 0;
+            TestResults.fail = 0;
+            TestResults.groups = {};
+            const startTime = performance.now();
+            for (const suite of testSuites) {
+                resetLyricsState();
+                runGroup(suite.name, suite.tests);
+            }
+            const elapsed = (performance.now() - startTime).toFixed(1);
+            document.getElementById('time-ms').textContent = elapsed + 'ms';
+            renderTestResults();
+        }
+
+        window.addEventListener('load', runAllTests);
+    </script>
+</body>
+</html>

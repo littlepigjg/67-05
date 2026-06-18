@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>歌词同步引擎 - 乐谱编辑器</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="lyrics-styles.css">
+</head>
+<body>
+    <div id="lyrics-app">
+        <header id="lyrics-toolbar">
+            <div class="toolbar-left">
+                <h1>🎵 歌词同步引擎</h1>
+                <span class="app-subtitle">音符与歌词双向映射编辑器</span>
+            </div>
+            <div class="toolbar-center">
+                <button id="btn-play" class="btn btn-primary">▶ 播放</button>
+                <button id="btn-pause" class="btn btn-warning" disabled>⏸ 暂停</button>
+                <button id="btn-stop" class="btn btn-danger" disabled>⏹ 停止</button>
+                <div class="time-display">
+                    <span id="current-time">00:00.00</span>
+                    <span class="time-sep">/</span>
+                    <span id="total-time">00:00.00</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-track" id="progress-track">
+                        <div class="progress-fill" id="progress-fill"></div>
+                        <div class="progress-handle" id="progress-handle"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="toolbar-right">
+                <div class="bpm-control">
+                    <label>BPM:</label>
+                    <input type="number" id="bpm-input" value="120" min="20" max="300">
+                </div>
+                <button id="btn-demo" class="btn btn-info">🎼 加载示例</button>
+                <button id="btn-export-img" class="btn btn-success">📷 导出图片</button>
+                <button id="btn-clear-all" class="btn btn-secondary">🗑 清空</button>
+            </div>
+        </header>
+
+        <main id="lyrics-main-content">
+            <aside id="lyrics-editor-panel">
+                <div id="lyrics-editor-container"></div>
+                <div class="mapping-info-card">
+                    <h4>映射统计</h4>
+                    <div class="stat-row">
+                        <span class="stat-label">音符总数</span>
+                        <span class="stat-value" id="stat-notes">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">歌词片段</span>
+                        <span class="stat-value" id="stat-lyrics">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">歌词行数</span>
+                        <span class="stat-value" id="stat-lines">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">已关联映射</span>
+                        <span class="stat-value" id="stat-mappings">0</span>
+                    </div>
+                </div>
+                <div class="help-card">
+                    <h4>📖 使用提示</h4>
+                    <ul>
+                        <li>点击<strong>加载示例</strong>快速体验</li>
+                        <li>拖拽歌词片段到音符上建立映射</li>
+                        <li>点击音符或歌词可跳转播放位置</li>
+                        <li>拖动进度条可快速定位时间</li>
+                        <li>支持LRC文件导入和导出</li>
+                        <li>歌词编辑器支持逐字精修</li>
+                    </ul>
+                </div>
+            </aside>
+
+            <section id="score-container">
+                <div id="score-render-container"></div>
+            </section>
+
+            <aside id="inspector-panel">
+                <h3>当前歌词</h3>
+                <div id="active-lyric-display" class="active-lyric-box">
+                    <div class="active-lyric-line">—</div>
+                </div>
+                <h3>当前音符</h3>
+                <div id="active-note-info" class="info-box">
+                    <p class="hint">点击音符查看详情</p>
+                </div>
+                <h3>双向映射查询</h3>
+                <div class="query-section">
+                    <label>查询方式:</label>
+                    <div class="query-tabs">
+                        <button class="tab-btn active" data-tab="note-to-lyric">音符→歌词</button>
+                        <button class="tab-btn" data-tab="lyric-to-note">歌词→音符</button>
+                    </div>
+                    <div id="note-to-lyric-panel" class="query-panel">
+                        <select id="note-select">
+                            <option value="">选择音符...</option>
+                        </select>
+                        <div id="mapped-lyrics-list" class="mapping-list">
+                            <p class="hint">暂无关联歌词</p>
+                        </div>
+                    </div>
+                    <div id="lyric-to-note-panel" class="query-panel hidden">
+                        <select id="lyric-select">
+                            <option value="">选择歌词...</option>
+                        </select>
+                        <div id="mapped-notes-list" class="mapping-list">
+                            <p class="hint">暂无关联音符</p>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <script src="js/lyrics-types.js"></script>
+    <script src="js/lyrics-engine.js"></script>
+    <script src="js/lyrics-editor.js"></script>
+    <script src="js/score-renderer.js"></script>
+    <script src="js/lyrics-app.js"></script>
+</body>
+</html>
